@@ -4587,3 +4587,14 @@ EVP_PKEY_meth_set_digestverify          4540	1_1_1e	EXIST::FUNCTION:
 EVP_PKEY_meth_get_digestverify          4541	1_1_1e	EXIST::FUNCTION:
 EVP_PKEY_meth_get_digestsign            4542	1_1_1e	EXIST::FUNCTION:
 RSA_get0_pss_params                     4543	1_1_1e	EXIST::FUNCTION:RSA
+Write_Schnorr_Signature                 4544	1_1_1f	EXIST::FUNCTION:
+Gen                                     4545	1_1_1f	EXIST::FUNCTION:
+Verify_Sign                             4546	1_1_1f	EXIST::FUNCTION:
+Read_Schnorr_Private_key                4547	1_1_1f	EXIST::FUNCTION:
+Write_Schnorr_Private_Key               4548	1_1_1f	EXIST::FUNCTION:
+Schnorr_Sign                            4549	1_1_1f	EXIST::FUNCTION:
+Verify_Multiple_Sign                    4550	1_1_1f	EXIST::FUNCTION:
+Schnorr_Multiple_Sign                   4551	1_1_1f	EXIST::FUNCTION:
+Read_Schnorr_Public_Key                 4552	1_1_1f	EXIST::FUNCTION:
+Read_Schnorr_Signature                  4553	1_1_1f	EXIST::FUNCTION:
+Write_Schnorr_Public_Key                4554	1_1_1f	EXIST::FUNCTION:
