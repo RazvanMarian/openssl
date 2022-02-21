@@ -1,4 +1,5 @@
 #include <openssl/schnorr.h>
+#include <openssl/crypto.h>
 
 // Base point coordinates
 #define xG "79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798"
@@ -20,6 +21,6 @@
 
 typedef struct schnorr_signature
 {
-    BIGNUM *R;
+    BIGNUM *r;
     BIGNUM *s;
 } schnorr_signature;

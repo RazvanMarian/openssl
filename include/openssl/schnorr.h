@@ -35,6 +35,10 @@ extern "C"
     int Read_Schnorr_Signature(schnorr_signature *sig, const char *filename);
 
     int Gen(EC_KEY **key);
+
+    schnorr_signature* Schnorr_SIG_new(void);
+
+    void Schnorr_SIG_free(schnorr_signature *sig);
 #ifdef __cplusplus
 }
 #endif

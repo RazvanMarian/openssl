@@ -4598,3 +4598,5 @@ Schnorr_Multiple_Sign                   4551	1_1_1f	EXIST::FUNCTION:
 Read_Schnorr_Public_Key                 4552	1_1_1f	EXIST::FUNCTION:
 Read_Schnorr_Signature                  4553	1_1_1f	EXIST::FUNCTION:
 Write_Schnorr_Public_Key                4554	1_1_1f	EXIST::FUNCTION:
+Schnorr_SIG_free                        4555	1_1_1f	EXIST::FUNCTION:
+Schnorr_SIG_new                         4556	1_1_1f	EXIST::FUNCTION:

@@ -116,18 +116,18 @@ int Schnorr_Sign(EC_KEY *key, const char *message, int message_length, schnorr_s
     //*************************************************************************************************
 
     // Calculate r = Hash(M || xQ)
-    (*sig).R = BN_new();
+    (*sig).r = BN_new();
 
-    if ((*sig).R == NULL)
+    if ((*sig).r == NULL)
     {
         printf("Memory error\n");
         error = MEMORY_ERROR;
         goto clear;
     }
 
-    BN_bin2bn(hash, SHA256_DIGEST_LENGTH, (*sig).R);
+    BN_bin2bn(hash, SHA256_DIGEST_LENGTH, (*sig).r);
     BN_CTX *ctx = BN_CTX_new();
-    BN_mod((*sig).R, (*sig).R, order, ctx);
+    BN_mod((*sig).r, (*sig).r, order, ctx);
     free(hash);
 
     //*************************************************************************************************
@@ -140,7 +140,7 @@ int Schnorr_Sign(EC_KEY *key, const char *message, int message_length, schnorr_s
     BIGNUM *temporary = BN_new();
     (*sig).s = BN_new();
 
-    BN_mod_mul(temporary, (*sig).R, private_key, order, ctx);
+    BN_mod_mul(temporary, (*sig).r, private_key, order, ctx);
     BN_mod_sub((*sig).s, k, temporary, order, ctx);
 
 clear:
@@ -233,7 +233,7 @@ int Verify_Sign(EC_KEY *key, const char *message, int message_length, schnorr_si
     EC_POINT *T = EC_POINT_new(group);
 
     // r * P
-    EC_POINT_mul(group, T, NULL, P, (*sig).R, NULL);
+    EC_POINT_mul(group, T, NULL, P, (*sig).r, NULL);
 
     // s * G + r * P
     EC_POINT_add(group, Q, Q, T, NULL);
@@ -292,7 +292,7 @@ int Verify_Sign(EC_KEY *key, const char *message, int message_length, schnorr_si
 
     // Compare v with r
     // if v == r => verification successful
-    if (BN_cmp(v, (*sig).R) == 0)
+    if (BN_cmp(v, (*sig).r) == 0)
     {
         printf("VERIFICATION OK\n");
     }
@@ -438,16 +438,16 @@ int Schnorr_Multiple_Sign(EC_KEY **keys, int signers_number, const char *message
     //*************************************************************************************************
 
     // Calculate r = Hash(M || xQ)
-    (*sig).R = BN_new();
-    if ((*sig).R == NULL)
+    (*sig).r = BN_new();
+    if ((*sig).r == NULL)
     {
         printf("Memory error\n");
         error = MEMORY_ERROR;
         goto clear;
     }
 
-    BN_bin2bn(hash, SHA256_DIGEST_LENGTH, (*sig).R);
-    BN_mod((*sig).R, (*sig).R, order, ctx);
+    BN_bin2bn(hash, SHA256_DIGEST_LENGTH, (*sig).r);
+    BN_mod((*sig).r, (*sig).r, order, ctx);
     free(hash);
     //*************************************************************************************************
 
@@ -467,7 +467,7 @@ int Schnorr_Multiple_Sign(EC_KEY **keys, int signers_number, const char *message
     BIGNUM *temporary = BN_new();
     (*sig).s = BN_new();
 
-    BN_mod_mul(temporary, (*sig).R, private_key, order, ctx);
+    BN_mod_mul(temporary, (*sig).r, private_key, order, ctx);
     BN_mod_sub((*sig).s, k, temporary, order, ctx);
 
 clear:
@@ -571,7 +571,7 @@ int Verify_Multiple_Sign(EC_KEY **keys, int signers_number, const char *message,
     EC_POINT *T = EC_POINT_new(group);
 
     // r * P
-    EC_POINT_mul(group, T, NULL, P, (*sig).R, NULL);
+    EC_POINT_mul(group, T, NULL, P, (*sig).r, NULL);
 
     // s * G + r * P
     EC_POINT_add(group, Q, Q, T, NULL);
@@ -628,7 +628,7 @@ int Verify_Multiple_Sign(EC_KEY **keys, int signers_number, const char *message,
 
     // Compare v with r
     // if v == r => verification successful
-    if (BN_cmp(v, (*sig).R) == 0)
+    if (BN_cmp(v, (*sig).r) == 0)
         BN_free(v);
     else
     {

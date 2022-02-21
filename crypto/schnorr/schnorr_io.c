@@ -89,10 +89,10 @@ int Read_Schnorr_Public_Key(EC_KEY **key, const char *filename)
 
 int Write_Schnorr_Signature(schnorr_signature *signature, const char *filename)
 {
-    unsigned char *r = (unsigned char *)malloc(BN_num_bytes((*signature).R) * sizeof(unsigned char));
+    unsigned char *r = (unsigned char *)malloc(BN_num_bytes((*signature).r) * sizeof(unsigned char));
     unsigned char *s = (unsigned char *)malloc(BN_num_bytes((*signature).s) * sizeof(unsigned char));
 
-    int size_r = BN_bn2binpad((*signature).R, r, SIGNATURE_COMPONENT_SIZE);
+    int size_r = BN_bn2binpad((*signature).r, r, SIGNATURE_COMPONENT_SIZE);
     if (size_r == 0)
     {
         printf("Eroare la conversia componentei r!\n");
@@ -156,8 +156,8 @@ int Read_Schnorr_Signature(schnorr_signature *sig, const char *filename)
         return -1;
     }
 
-    (*sig).R = BN_bin2bn(r, SIGNATURE_COMPONENT_SIZE, NULL);
-    if ((*sig).R == NULL)
+    (*sig).r = BN_bin2bn(r, SIGNATURE_COMPONENT_SIZE, NULL);
+    if ((*sig).r == NULL)
     {
         printf("Eroare la conversia semnaturii in BN!\n");
         return -1;
