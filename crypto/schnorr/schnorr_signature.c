@@ -318,7 +318,7 @@ int Schnorr_Multiple_Sign(EC_KEY **keys, int signers_number, const char *message
 {
 
     EC_POINT *G, *Q;
-    BIGNUM *x, *y, *ks[signers_number], *order, *xQ;
+    BIGNUM *x, *y, *order, *xQ;
     BIGNUM *k = BN_new();
     BN_zero(k);
     EC_GROUP *group;
@@ -352,15 +352,15 @@ int Schnorr_Multiple_Sign(EC_KEY **keys, int signers_number, const char *message
     // Generate random integers k between [1,order]
     for (int i = 0; i < signers_number; i++)
     {
-        ks[i] = BN_new();
-        if (ks[i] == NULL)
+        BIGNUM *ks = BN_new();
+        if (ks == NULL)
         {
             printf("Memory error\n");
             error = MEMORY_ERROR;
             goto clear;
         }
-        BN_rand_range(ks[i], order);
-        BN_mod_add(k, k, ks[i], order, ctx);
+        BN_rand_range(ks, order);
+        BN_mod_add(k, k, ks, order, ctx);
     }
 
     //*************************************************************************************************
