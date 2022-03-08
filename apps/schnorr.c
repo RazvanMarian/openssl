@@ -116,13 +116,13 @@ int schnorr_main(int argc, char **argv)
         if (outfile != NULL)
         {
             EC_KEY *key;
-            int ret_code = Gen(&key);
+            int ret_code = SCHNORR_generate_key(&key);
             if (ret_code != 0)
             {
                 printf("Error generating a key pair!\n");
                 goto end;
             }
-            ret_code = Write_Schnorr_Private_Key(key, outfile);
+            ret_code = SCHNORR_write_private_key(key, outfile);
             if (ret_code != 0)
             {
                 printf("Error writing a key pair!\n");
@@ -142,13 +142,13 @@ int schnorr_main(int argc, char **argv)
         if (infile != NULL && outfile != NULL)
         {
             EC_KEY *key_pair = EC_KEY_new();
-            if (Read_Schnorr_Private_key(&key_pair, infile) != 0)
+            if (SCHNORR_read_private_key(&key_pair, infile) != 0)
             {
                 BIO_printf(bio_err, "%s: Could not open the file to be signed.\n", prog);
                 goto end;
             }
 
-            if (Write_Schnorr_Public_Key(key_pair, outfile) != 0)
+            if (SCHNORR_write_public_key(key_pair, outfile) != 0)
             {
                 BIO_printf(bio_err, "%s: Could not open the file to be signed.\n", prog);
                 goto end;
@@ -211,22 +211,22 @@ int schnorr_main(int argc, char **argv)
             // load private key
 
             EC_KEY *private_key = EC_KEY_new();
-            if (Read_Schnorr_Private_key(&private_key, keyfile) != 0)
+            if (SCHNORR_read_private_key(&private_key, keyfile) != 0)
             {
                 BIO_printf(bio_err, "%s: Could not load the private key.\n", prog);
                 goto end;
             }
 
             // sign the document
-            schnorr_signature *signature = Schnorr_SIG_new();
+            SCHNORR_SIG *signature = SCHNORR_SIG_new();
 
-            if (Schnorr_Sign(private_key, (const char *)file_hash, SHA256_DIGEST_LENGTH, signature) != 0)
+            if (SCHNORR_sign(private_key, (const char *)file_hash, SHA256_DIGEST_LENGTH, signature) != 0)
             {
                 BIO_printf(bio_err, "%s: Error signing the file.\n", prog);
                 goto end;
             }
 
-            if (Write_Schnorr_Signature(signature, outfile) != 0)
+            if (SCHNORR_write_signature(signature, outfile) != 0)
             {
                 BIO_printf(bio_err, "%s: Error writing the signature in the output file.\n", prog);
                 goto end;
@@ -272,20 +272,20 @@ int schnorr_main(int argc, char **argv)
             SHA256((unsigned char *)file_content, fsize, file_hash);
 
             EC_KEY *public_key = EC_KEY_new();
-            if (Read_Schnorr_Public_Key(&public_key, keyfile) != 0)
+            if (SCHNORR_read_public_key(&public_key, keyfile) != 0)
             {
                 BIO_printf(bio_err, "%s: Could not load the private key.\n", prog);
                 goto end;
             }
 
-            schnorr_signature *signature = Schnorr_SIG_new();
-            if (Read_Schnorr_Signature(signature, sigfile) != 0)
+            SCHNORR_SIG *signature = SCHNORR_SIG_new();
+            if (SCHNORR_read_signature(signature, sigfile) != 0)
             {
                 BIO_printf(bio_err, "%s: Could not read the signature from the specified file.\n", prog);
                 goto end;
             }
 
-            if (Verify_Sign(public_key, (const char *)file_hash, SHA256_DIGEST_LENGTH, signature) != 0)
+            if (SCHNORR_verify(public_key, (const char *)file_hash, SHA256_DIGEST_LENGTH, signature) != 0)
             {
                 BIO_printf(bio_err, "%s: Could not verify the signature. Signature IS NOT OK.\n", prog);
                 goto end;

@@ -1,9 +1,9 @@
 #include "schnorr_local.h"
 
 
-schnorr_signature* Schnorr_SIG_new()
+SCHNORR_SIG* SCHNORR_SIG_new()
 {
-    schnorr_signature* sig = OPENSSL_zalloc(sizeof(*sig));
+    SCHNORR_SIG* sig = OPENSSL_zalloc(sizeof(*sig));
     if(sig == NULL)
     {
         printf("Eroare alocare semnatura schnorr!");
@@ -11,7 +11,7 @@ schnorr_signature* Schnorr_SIG_new()
     return sig;
 }
 
-void Schnorr_SIG_free(schnorr_signature *sig)
+void SCHNORR_SIG_free(SCHNORR_SIG *sig)
 {
     if (sig == NULL)
         return;
@@ -20,7 +20,7 @@ void Schnorr_SIG_free(schnorr_signature *sig)
     OPENSSL_free(sig);
 }
 
-int Gen(EC_KEY **key)
+int SCHNORR_generate_key(EC_KEY **key)
 {
     EC_POINT *Q, *G;
     BIGNUM *a, *x, *y, *order;

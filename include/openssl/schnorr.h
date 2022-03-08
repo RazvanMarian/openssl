@@ -12,33 +12,35 @@ extern "C"
 #include <openssl/pem.h>
 #include <openssl/err.h>
 
-    typedef struct schnorr_signature schnorr_signature;
+    typedef struct SCHNORR_SIG_st SCHNORR_SIG;
 
-    int Schnorr_Sign(EC_KEY *key, const char *message, int message_length, schnorr_signature *sig);
+    int SCHNORR_generate_key(EC_KEY **key);
 
-    int Verify_Sign(EC_KEY *key, const char *message, int message_length, schnorr_signature *sig);
+    SCHNORR_SIG* SCHNORR_SIG_new(void);
 
-    int Schnorr_Multiple_Sign(EC_KEY **keys, int signers_number, const char *message, int message_length, schnorr_signature *sig);
+    void SCHNORR_SIG_free(SCHNORR_SIG *sig);
 
-    int Verify_Multiple_Sign(EC_KEY **keys, int signers_number, const char *message, int message_length, schnorr_signature *sig);
+    int SCHNORR_sign(EC_KEY *key, const char *message, int message_length, SCHNORR_SIG *sig);
 
-    int Write_Schnorr_Private_Key(EC_KEY *key, const char *filename);
+    int SCHNORR_verify(EC_KEY *key, const char *message, int message_length, SCHNORR_SIG *sig);
 
-    int Write_Schnorr_Public_Key(EC_KEY *key, const char *filename);
+    int SCHNORR_multiple_sign(EC_KEY **keys, int signers_number, const char *message, int message_length, SCHNORR_SIG *sig);
 
-    int Read_Schnorr_Private_key(EC_KEY **key, const char *filename);
+    int SCHNORR_multiple_verify(EC_KEY **keys, int signers_number, const char *message, int message_length, SCHNORR_SIG *sig);
 
-    int Read_Schnorr_Public_Key(EC_KEY **key, const char *filename);
+    int SCHNORR_write_private_key(EC_KEY *key, const char *filename);
 
-    int Write_Schnorr_Signature(schnorr_signature *signature, const char *filename);
+    int SCHNORR_write_public_key(EC_KEY *key, const char *filename);
 
-    int Read_Schnorr_Signature(schnorr_signature *sig, const char *filename);
+    int SCHNORR_read_private_key(EC_KEY **key, const char *filename);
 
-    int Gen(EC_KEY **key);
+    int SCHNORR_read_public_key(EC_KEY **key, const char *filename);
 
-    schnorr_signature* Schnorr_SIG_new(void);
+    int SCHNORR_write_signature(SCHNORR_SIG *signature, const char *filename);
 
-    void Schnorr_SIG_free(schnorr_signature *sig);
+    int SCHNORR_read_signature(SCHNORR_SIG *sig, const char *filename);
+
+    
 #ifdef __cplusplus
 }
 #endif

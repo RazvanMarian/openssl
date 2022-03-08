@@ -1,6 +1,6 @@
 #include "schnorr_local.h"
 
-int Write_Schnorr_Private_Key(EC_KEY *key, const char *filename)
+int SCHNORR_write_private_key(EC_KEY *key, const char *filename)
 {
     BIO *output = NULL;
 
@@ -21,7 +21,7 @@ int Write_Schnorr_Private_Key(EC_KEY *key, const char *filename)
     return 0;
 }
 
-int Write_Schnorr_Public_Key(EC_KEY *key, const char *filename)
+int SCHNORR_write_public_key(EC_KEY *key, const char *filename)
 {
     BIO *output = NULL;
 
@@ -42,7 +42,7 @@ int Write_Schnorr_Public_Key(EC_KEY *key, const char *filename)
     return 0;
 }
 
-int Read_Schnorr_Private_key(EC_KEY **key, const char *filename)
+int SCHNORR_read_private_key(EC_KEY **key, const char *filename)
 {
     BIO *output = NULL;
     *key = EC_KEY_new();
@@ -64,7 +64,7 @@ int Read_Schnorr_Private_key(EC_KEY **key, const char *filename)
     return 0;
 }
 
-int Read_Schnorr_Public_Key(EC_KEY **key, const char *filename)
+int SCHNORR_read_public_key(EC_KEY **key, const char *filename)
 {
     BIO *output = NULL;
     *key = EC_KEY_new();
@@ -87,7 +87,7 @@ int Read_Schnorr_Public_Key(EC_KEY **key, const char *filename)
     return 0;
 }
 
-int Write_Schnorr_Signature(schnorr_signature *signature, const char *filename)
+int SCHNORR_write_signature(SCHNORR_SIG *signature, const char *filename)
 {
     unsigned char *r = (unsigned char *)malloc(BN_num_bytes((*signature).r) * sizeof(unsigned char));
     unsigned char *s = (unsigned char *)malloc(BN_num_bytes((*signature).s) * sizeof(unsigned char));
@@ -130,7 +130,7 @@ int Write_Schnorr_Signature(schnorr_signature *signature, const char *filename)
     return 0;
 }
 
-int Read_Schnorr_Signature(schnorr_signature *sig, const char *filename)
+int SCHNORR_read_signature(SCHNORR_SIG *sig, const char *filename)
 {
     unsigned char *r = (unsigned char *)malloc(SIGNATURE_COMPONENT_SIZE * sizeof(unsigned char));
     unsigned char *s = (unsigned char *)malloc(SIGNATURE_COMPONENT_SIZE * sizeof(unsigned char));

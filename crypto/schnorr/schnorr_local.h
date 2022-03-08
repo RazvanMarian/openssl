@@ -19,8 +19,8 @@
 
 #define SIGNATURE_COMPONENT_SIZE 32
 
-typedef struct schnorr_signature
+typedef struct SCHNORR_SIG_st
 {
     BIGNUM *r;
     BIGNUM *s;
-} schnorr_signature;
+} SCHNORR_SIG;

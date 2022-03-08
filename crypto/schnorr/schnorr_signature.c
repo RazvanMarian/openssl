@@ -1,6 +1,6 @@
 #include "schnorr_local.h"
 
-int Schnorr_Sign(EC_KEY *key, const char *message, int message_length, schnorr_signature *sig)
+int SCHNORR_sign(EC_KEY *key, const char *message, int message_length, SCHNORR_SIG *sig)
 {
     EC_POINT *G, *Q;
     BIGNUM *x, *y, *k, *order, *xQ;
@@ -155,7 +155,7 @@ clear:
     return error;
 }
 
-int Verify_Sign(EC_KEY *key, const char *message, int message_length, schnorr_signature *sig)
+int SCHNORR_verify(EC_KEY *key, const char *message, int message_length, SCHNORR_SIG *sig)
 {
     BIGNUM *order, *x, *y;
     EC_POINT *G, *Q;
@@ -314,7 +314,7 @@ clear:
     return error;
 }
 
-int Schnorr_Multiple_Sign(EC_KEY **keys, int signers_number, const char *message, int message_length, schnorr_signature *sig)
+int SCHNORR_multiple_sign(EC_KEY **keys, int signers_number, const char *message, int message_length, SCHNORR_SIG *sig)
 {
 
     EC_POINT *G, *Q;
@@ -483,7 +483,7 @@ clear:
     return error;
 }
 
-int Verify_Multiple_Sign(EC_KEY **keys, int signers_number, const char *message, int message_length, schnorr_signature *sig)
+int SCHNORR_multiple_verify(EC_KEY **keys, int signers_number, const char *message, int message_length, SCHNORR_SIG *sig)
 {
     BIGNUM *order, *x, *y;
     EC_POINT *G, *Q;
