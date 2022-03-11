@@ -1,10 +1,9 @@
 #include "schnorr_local.h"
 
-
-SCHNORR_SIG* SCHNORR_SIG_new()
+SCHNORR_SIG *SCHNORR_SIG_new()
 {
-    SCHNORR_SIG* sig = OPENSSL_zalloc(sizeof(*sig));
-    if(sig == NULL)
+    SCHNORR_SIG *sig = OPENSSL_zalloc(sizeof(*sig));
+    if (sig == NULL)
     {
         printf("Eroare alocare semnatura schnorr!");
     }
@@ -137,4 +136,98 @@ clear:
     BN_free(order);
 
     return error;
+}
+
+EC_KEY *SCHNORR_generate_aggregate_public_key(EC_KEY **keys, int signers_number)
+{
+    EC_GROUP *group;
+    EC_KEY *key = NULL;
+    group = EC_GROUP_new_by_curve_name(NID_secp256k1);
+    if (group == NULL)
+    {
+        printf("The curve group does not exist!\n");
+
+        goto end;
+    }
+    EC_POINT *P = EC_POINT_new(group);
+
+    for (int i = 0; i < signers_number; i++)
+    {
+        const EC_POINT *temporar = EC_KEY_get0_public_key(keys[i]);
+        if (i == 0)
+            EC_POINT_copy(P, temporar);
+        else
+            EC_POINT_add(group, P, P, temporar, NULL);
+    }
+    key = EC_KEY_new();
+    if (key == NULL)
+    {
+        printf("Memory error!\n");
+        goto end;
+    }
+    if (!EC_KEY_set_group(key, group))
+    {
+        printf("Error setting the key group");
+        goto end;
+    }
+
+    if (!EC_KEY_set_public_key(key, P))
+    {
+        printf("Error setting the public key\n");
+        return NULL;
+    }
+
+end:
+    return key;
+}
+
+EC_KEY *SCHNORR_generate_aggregate_private_key(EC_KEY **keys, int signers_number)
+{
+    EC_GROUP *group = EC_GROUP_new_by_curve_name(NID_secp256k1);
+    EC_KEY *key = NULL;
+    BN_CTX *ctx = BN_CTX_new();
+
+    if (group == NULL)
+    {
+        printf("The curve group does not exist!\n");
+        goto end;
+    }
+
+    // Getting the order of the curve
+    EC_GROUP *order = BN_new();
+    if (order == NULL)
+    {
+        printf("Memory error\n");
+
+        goto end;
+    }
+
+    BIGNUM *private_key = BN_new();
+    BN_zero(private_key);
+    for (int i = 0; i < signers_number; i++)
+    {
+        const BIGNUM *temp_key = EC_KEY_get0_private_key(keys[i]);
+        BN_mod_add(private_key, private_key, temp_key, order, ctx);
+    }
+    key = EC_KEY_new();
+    if (key == NULL)
+    {
+        printf("Memory error!\n");
+        goto end;
+    }
+    if (!EC_KEY_set_group(key, group))
+    {
+        printf("Error setting the key group");
+        goto end;
+    }
+
+    if (!EC_KEY_set_private_key(key, private_key))
+    {
+        printf("Error setting the private key\n");
+        return NULL;
+    }
+
+end:
+
+    return key;
 }

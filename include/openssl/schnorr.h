@@ -16,9 +16,13 @@ extern "C"
 
     int SCHNORR_generate_key(EC_KEY **key);
 
-    SCHNORR_SIG* SCHNORR_SIG_new(void);
+    SCHNORR_SIG *SCHNORR_SIG_new(void);
 
     void SCHNORR_SIG_free(SCHNORR_SIG *sig);
+
+    EC_KEY *SCHNORR_generate_aggregate_public_key(EC_KEY **keys, int signers_number);
+
+    EC_KEY *SCHNORR_generate_aggregate_private_key(EC_KEY **keys, int signers_number);
 
     int SCHNORR_sign(EC_KEY *key, const char *message, int message_length, SCHNORR_SIG *sig);
 
@@ -40,7 +44,6 @@ extern "C"
 
     int SCHNORR_read_signature(SCHNORR_SIG *sig, const char *filename);
 
-    
 #ifdef __cplusplus
 }
 #endif
