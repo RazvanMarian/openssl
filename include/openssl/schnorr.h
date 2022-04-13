@@ -44,6 +44,14 @@ extern "C"
 
     int SCHNORR_read_signature(SCHNORR_SIG *sig, const char *filename);
 
+    BIGNUM *SCHNORR_SIG_get_r(SCHNORR_SIG *sig);
+
+    BIGNUM *SCHNORR_SIG_get_s(SCHNORR_SIG *sig);
+
+    int SCHNORR_SIG_set_r(SCHNORR_SIG *sig, BIGNUM *r);
+
+    int SCHNORR_SIG_set_s(SCHNORR_SIG *sig, BIGNUM *s);
+
 #ifdef __cplusplus
 }
 #endif

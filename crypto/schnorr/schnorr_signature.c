@@ -647,3 +647,101 @@ clear:
     EC_GROUP_free(group);
     return error;
 }
+
+BIGNUM *SCHNORR_SIG_get_r(SCHNORR_SIG *sig)
+{
+    if ((*sig).r != NULL)
+        return (*sig).r;
+
+    return NULL;
+}
+
+BIGNUM *SCHNORR_SIG_get_s(SCHNORR_SIG *sig)
+{
+    if ((*sig).s != NULL)
+        return (*sig).s;
+
+    return NULL;
+}
+
+int SCHNORR_SIG_set_r(SCHNORR_SIG *sig, BIGNUM *r)
+{
+    if (r != NULL)
+    {
+        EC_GROUP *group = EC_GROUP_new_by_curve_name(NID_secp256k1);
+        if (group == NULL)
+        {
+            printf("The curve group does not exist!\n");
+            return -1;
+        }
+
+        // Getting the order of the curve
+        BIGNUM *order = BN_new();
+        if (order == NULL)
+        {
+            return -1;
+        }
+        if (EC_GROUP_get_order(group, order, NULL) == 0)
+        {
+            return -1;
+        }
+
+        BIGNUM *test = BN_new();
+        BN_one(test);
+        if ((BN_cmp(r, order) == 1) || (BN_cmp(r, test) == -1))
+        {
+            printf("r component of the signature is out of bounds\n");
+            return -1;
+        }
+        BN_free(test);
+
+        (*sig).r = BN_dup(r);
+        if ((*sig).r != NULL)
+            return 0;
+
+        return -1;
+    }
+
+    return -1;
+}
+
+int SCHNORR_SIG_set_s(SCHNORR_SIG *sig, BIGNUM *s)
+{
+    if (s != NULL)
+    {
+        EC_GROUP *group = EC_GROUP_new_by_curve_name(NID_secp256k1);
+        if (group == NULL)
+        {
+            printf("The curve group does not exist!\n");
+            return -1;
+        }
+
+        // Getting the order of the curve
+        BIGNUM *order = BN_new();
+        if (order == NULL)
+        {
+            return -1;
+        }
+        if (EC_GROUP_get_order(group, order, NULL) == 0)
+        {
+            return -1;
+        }
+
+        BIGNUM *test = BN_new();
+        BN_one(test);
+        if ((BN_cmp(s, order) == 1) || (BN_cmp(s, test) == -1))
+        {
+            printf("s component of the signature is out of bounds\n");
+            return -1;
+        }
+        BN_free(test);
+
+        (*sig).s = BN_dup(s);
+        if ((*sig).s != NULL)
+            return 0;
+
+        return -1;
+    }
+
+    return -1;
+}

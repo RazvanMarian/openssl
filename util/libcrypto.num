@@ -4616,3 +4616,7 @@ SCHNORR_read_private_key                4569	1_1_1f	EXIST::FUNCTION:
 SCHNORR_multiple_sign                   4570	1_1_1f	EXIST::FUNCTION:
 SCHNORR_generate_aggregate_private_key  4571	1_1_1f	EXIST::FUNCTION:
 SCHNORR_generate_aggregate_public_key   4572	1_1_1f	EXIST::FUNCTION:
+SCHNORR_SIG_get_r                       4573	1_1_1f	EXIST::FUNCTION:
+SCHNORR_SIG_get_s                       4574	1_1_1f	EXIST::FUNCTION:
+SCHNORR_SIG_set_r                       4575	1_1_1f	EXIST::FUNCTION:
+SCHNORR_SIG_set_s                       4576	1_1_1f	EXIST::FUNCTION:
