@@ -95,7 +95,6 @@ int SCHNORR_sign(EC_KEY *key, const char *message, int message_length, SCHNORR_S
         goto clear;
     }
     EC_POINT_get_affine_coordinates(group, Q, xQ, NULL, NULL);
-    printf("\n\n");
 
     unsigned char *xQ_OS = (unsigned char *)malloc(BN_num_bytes(xQ));
     BN_bn2bin(xQ, (unsigned char *)xQ_OS);
@@ -254,7 +253,6 @@ int SCHNORR_verify(EC_KEY *key, const char *message, int message_length, SCHNORR
         goto clear;
     }
     EC_POINT_get_affine_coordinates(group, Q, xQ, NULL, NULL);
-    printf("\n\n");
 
     unsigned char *xQ_OS = (unsigned char *)malloc(BN_num_bytes(xQ));
     BN_bn2bin(xQ, (unsigned char *)xQ_OS);
@@ -418,7 +416,6 @@ int SCHNORR_multiple_sign(EC_KEY **keys, int signers_number, const char *message
         goto clear;
     }
     EC_POINT_get_affine_coordinates(group, Q, xQ, NULL, NULL);
-    printf("\n\n");
 
     unsigned char *xQ_OS = (unsigned char *)malloc(BN_num_bytes(xQ));
     BN_bn2bin(xQ, (unsigned char *)xQ_OS);
@@ -592,7 +589,6 @@ int SCHNORR_multiple_verify(EC_KEY **keys, int signers_number, const char *messa
         goto clear;
     }
     EC_POINT_get_affine_coordinates(group, Q, xQ, NULL, NULL);
-    printf("\n\n");
 
     unsigned char *xQ_OS = (unsigned char *)malloc(BN_num_bytes(xQ));
     BN_bn2bin(xQ, (unsigned char *)xQ_OS);
