@@ -290,11 +290,7 @@ int SCHNORR_verify(EC_KEY *key, const char *message, int message_length, SCHNORR
 
     // Compare v with r
     // if v == r => verification successful
-    if (BN_cmp(v, (*sig).r) == 0)
-    {
-        printf("VERIFICATION OK\n");
-    }
-    else
+    if (BN_cmp(v, (*sig).r) != 0)
     {
         printf("Verification error\n");
         error = VERIFICATION_ERROR;
