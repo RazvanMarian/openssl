@@ -1,5 +1,6 @@
 {
     "files.associations": {
-        "x509.h": "c"
+        "x509.h": "c",
+        "schnorr.h": "c"
     }
 }

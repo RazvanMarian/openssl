@@ -9,6 +9,7 @@
 
 #include <openssl/opensslconf.h>
 #include <stdio.h>
+#include <string.h>
 #include "apps.h"
 #include "progs.h"
 #include <openssl/bio.h>
@@ -28,7 +29,11 @@ typedef enum OPTION_choice
     OPT_SIGN,
     OPT_VERIFY,
     OPT_SIGNATURE,
-    OPT_GENERATE
+    OPT_GENERATE,
+    OPT_MULTIPLE_SIGN,
+    OPT_MULTIPLE_SIGNER,
+    OPT_MULTIPLE_VERIFY,
+    OPT_MULTIPLE_VERIFIER
 } OPTION_CHOICE;
 
 const OPTIONS schnorr_options[] = {
@@ -42,7 +47,11 @@ const OPTIONS schnorr_options[] = {
     {"sign", OPT_SIGN, 's', "Sign digest using private key"},
     {"verify", OPT_VERIFY, 's', "Verify a signature using public key"},
     {"signature", OPT_SIGNATURE, '<', "File with signature to verify"},
-    {"generate", OPT_GENERATE, '-', "Generate a key pair"},
+    {"genschnorr", OPT_GENERATE, '-', "Generate a key pair"},
+    {"multiplesign", OPT_MULTIPLE_SIGN, 's', "Aggregate signature"},
+    {"signer", OPT_MULTIPLE_SIGNER, 's', "Aggregate signer private key"},
+    {"multipleverify", OPT_MULTIPLE_VERIFY, 's', "Aggregate verification"},
+    {"verifier", OPT_MULTIPLE_VERIFIER, 's', "Aggregate verifier public key"},
     {NULL}};
 
 int schnorr_main(int argc, char **argv)
@@ -54,7 +63,9 @@ int schnorr_main(int argc, char **argv)
     int text = 0, noout = 0;
     int pubin = 0, pubout = 0, ret = 1;
     int sign = 0, verify = 0, generate = 0;
-    char *keyfile = NULL, *sigfile = NULL;
+    int multiple_sign = 0, multiple_verify = 0;
+    int signers_number = 0, participant_counter = 0, verifier_counter = 0;
+    char *keyfile = NULL, *sigfile = NULL, **key_files = NULL;
 
     prog = opt_init(argc, argv, schnorr_options);
     while ((o = opt_next()) != OPT_EOF)
@@ -102,6 +113,41 @@ int schnorr_main(int argc, char **argv)
             break;
         case OPT_GENERATE:
             generate = 1;
+            break;
+        case OPT_MULTIPLE_SIGN:
+
+            multiple_sign = 1;
+            signers_number = atoi(opt_arg());
+            key_files = (char **)malloc(sizeof(char *) * signers_number);
+            break;
+        case OPT_MULTIPLE_SIGNER:
+
+            if (participant_counter < signers_number)
+            {
+                key_files[participant_counter] = strdup(opt_arg());
+                participant_counter++;
+            }
+            else
+                goto opthelp;
+
+            break;
+
+        case OPT_MULTIPLE_VERIFY:
+
+            pubin = multiple_verify = 1;
+            signers_number = atoi(opt_arg());
+            key_files = (char **)malloc(sizeof(char *) * signers_number);
+            break;
+        case OPT_MULTIPLE_VERIFIER:
+
+            if (verifier_counter < signers_number)
+            {
+                key_files[verifier_counter] = strdup(opt_arg());
+                verifier_counter++;
+            }
+            else
+                goto opthelp;
+
             break;
         }
     }
@@ -175,6 +221,149 @@ int schnorr_main(int argc, char **argv)
     {
         ret = 0;
         goto end;
+    }
+
+    if (multiple_sign)
+    {
+        if (signers_number != participant_counter)
+        {
+            goto opthelp;
+        }
+
+        if (argv[0] != NULL && key_files != NULL && outfile != NULL)
+        {
+            char *file_to_be_signed = argv[0];
+
+            // read file input
+            FILE *f_in = fopen(file_to_be_signed, "rb");
+            if (f_in == NULL)
+            {
+                BIO_printf(bio_err, "%s: Could not open the file to be signed.\n", prog);
+                goto end;
+            }
+            fseek(f_in, 0, SEEK_END);
+            long fsize = ftell(f_in);
+            fseek(f_in, 0, SEEK_SET); /* same as rewind(f); */
+
+            char *file_content = malloc(fsize + 1);
+            if (fread(file_content, fsize, 1, f_in) == 0)
+            {
+                BIO_printf(bio_err, "%s: Could not read from the file to be signed.\n", prog);
+                goto end;
+            }
+            fclose(f_in);
+            file_content[fsize] = 0;
+            //*******************************
+
+            // Compute file hash
+            unsigned char *file_hash = (unsigned char *)malloc(SHA256_DIGEST_LENGTH);
+            SHA256((unsigned char *)file_content, fsize, file_hash);
+
+            EC_KEY **keys = (EC_KEY **)malloc(sizeof(EC_KEY *) * signers_number);
+
+            int res;
+            for (int i = 0; i < signers_number; i++)
+            {
+
+                res = SCHNORR_read_private_key(&keys[i], key_files[i]);
+                if (res != 0)
+                {
+                    BIO_printf(bio_err, "%s: Could not load the private key.\n", prog);
+                    goto end;
+                }
+            }
+
+            // sign the document
+            SCHNORR_SIG *signature = SCHNORR_SIG_new();
+
+            if (SCHNORR_multiple_sign(keys, signers_number, (const char *)file_hash, SHA256_DIGEST_LENGTH, signature) != 0)
+            {
+                BIO_printf(bio_err, "%s: Error signing the file.\n", prog);
+                goto end;
+            }
+
+            if (SCHNORR_write_signature(signature, outfile) != 0)
+            {
+                BIO_printf(bio_err, "%s: Error writing the signature in the output file.\n", prog);
+                goto end;
+            }
+
+            printf("The file %s was signed. The signature should be in %s.\n", file_to_be_signed, outfile);
+        }
+        else
+        {
+            goto opthelp;
+        }
+    }
+
+    if (multiple_verify)
+    {
+        if (signers_number != verifier_counter)
+        {
+            goto opthelp;
+        }
+
+        if (pubin && sigfile != NULL && argv[0] != NULL)
+        {
+            char *file_to_be_verified = argv[0];
+
+            // read file input
+            FILE *f_in = fopen(file_to_be_verified, "rb");
+            if (f_in == NULL)
+            {
+                BIO_printf(bio_err, "%s: Could not open the file to be signed.\n", prog);
+                goto end;
+            }
+            fseek(f_in, 0, SEEK_END);
+            long fsize = ftell(f_in);
+            fseek(f_in, 0, SEEK_SET); /* same as rewind(f); */
+
+            char *file_content = malloc(fsize + 1);
+            if (fread(file_content, fsize, 1, f_in) == 0)
+            {
+                BIO_printf(bio_err, "%s: Could not read from the file to be signed.\n", prog);
+                goto end;
+            }
+            fclose(f_in);
+            file_content[fsize] = 0;
+            //*******************************
+
+            // Compute file hash
+            unsigned char *file_hash = (unsigned char *)malloc(SHA256_DIGEST_LENGTH);
+            SHA256((unsigned char *)file_content, fsize, file_hash);
+
+            EC_KEY **keys = (EC_KEY **)malloc(sizeof(EC_KEY *) * signers_number);
+
+            int res;
+            for (int i = 0; i < signers_number; i++)
+            {
+
+                res = SCHNORR_read_public_key(&keys[i], key_files[i]);
+                if (res != 0)
+                {
+                    BIO_printf(bio_err, "%s: Could not load the public key.\n", prog);
+                    goto end;
+                }
+            }
+
+            SCHNORR_SIG *signature = SCHNORR_SIG_new();
+            if (SCHNORR_read_signature(signature, sigfile) != 0)
+            {
+                BIO_printf(bio_err, "%s: Could not read the signature from the specified file.\n", prog);
+                goto end;
+            }
+
+            if (SCHNORR_multiple_verify(keys, signers_number, (const char *)file_hash, SHA256_DIGEST_LENGTH, signature) != 0)
+            {
+                BIO_printf(bio_err, "%s: Could not verify the signature. Signature IS NOT OK.\n", prog);
+                goto end;
+            }
+            printf("Verified OK!\n");
+        }
+        else
+        {
+            goto opthelp;
+        }
     }
 
     if (sign)

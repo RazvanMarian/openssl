@@ -14,17 +14,30 @@
 #include <openssl/pem.h>
 #include <openssl/err.h>
 #include <openssl/evp.h>
+#include <openssl/schnorr.h>
 #ifndef OPENSSL_NO_ENGINE
-# include <openssl/engine.h>
+#include <openssl/engine.h>
 #endif
 
 static int init_keygen_file(EVP_PKEY_CTX **pctx, const char *file, ENGINE *e);
 static int genpkey_cb(EVP_PKEY_CTX *ctx);
+int schnorr_generate = 0;
 
-typedef enum OPTION_choice {
-    OPT_ERR = -1, OPT_EOF = 0, OPT_HELP,
-    OPT_ENGINE, OPT_OUTFORM, OPT_OUT, OPT_PASS, OPT_PARAMFILE,
-    OPT_ALGORITHM, OPT_PKEYOPT, OPT_GENPARAM, OPT_TEXT, OPT_CIPHER
+typedef enum OPTION_choice
+{
+    OPT_ERR = -1,
+    OPT_EOF = 0,
+    OPT_HELP,
+    OPT_ENGINE,
+    OPT_OUTFORM,
+    OPT_OUT,
+    OPT_PASS,
+    OPT_PARAMFILE,
+    OPT_ALGORITHM,
+    OPT_PKEYOPT,
+    OPT_GENPARAM,
+    OPT_TEXT,
+    OPT_CIPHER
 } OPTION_CHOICE;
 
 const OPTIONS genpkey_options[] = {
@@ -45,8 +58,7 @@ const OPTIONS genpkey_options[] = {
     /* This is deliberately last. */
     {OPT_HELP_STR, 1, 1,
      "Order of options may be important!  See the documentation.\n"},
-    {NULL}
-};
+    {NULL}};
 
 int genpkey_main(int argc, char **argv)
 {
@@ -61,11 +73,13 @@ int genpkey_main(int argc, char **argv)
     int private = 0;
 
     prog = opt_init(argc, argv, genpkey_options);
-    while ((o = opt_next()) != OPT_EOF) {
-        switch (o) {
+    while ((o = opt_next()) != OPT_EOF)
+    {
+        switch (o)
+        {
         case OPT_EOF:
         case OPT_ERR:
- opthelp:
+        opthelp:
             BIO_printf(bio_err, "%s: Use -help for summary.\n", prog);
             goto end;
         case OPT_HELP:
@@ -92,15 +106,18 @@ int genpkey_main(int argc, char **argv)
                 goto end;
             break;
         case OPT_ALGORITHM:
+            schnorr_generate = 1;
             if (!init_gen_str(&ctx, opt_arg(), e, do_param))
                 goto end;
             break;
         case OPT_PKEYOPT:
-            if (ctx == NULL) {
+            if (ctx == NULL)
+            {
                 BIO_printf(bio_err, "%s: No keytype specified.\n", prog);
                 goto opthelp;
             }
-            if (pkey_ctrl_string(ctx, opt_arg()) <= 0) {
+            if (pkey_ctrl_string(ctx, opt_arg()) <= 0)
+            {
                 BIO_printf(bio_err,
                            "%s: Error setting %s parameter:\n",
                            prog, opt_arg());
@@ -117,13 +134,13 @@ int genpkey_main(int argc, char **argv)
             text = 1;
             break;
         case OPT_CIPHER:
-            if (!opt_cipher(opt_unknown(), &cipher)
-                || do_param == 1)
+            if (!opt_cipher(opt_unknown(), &cipher) || do_param == 1)
                 goto opthelp;
             if (EVP_CIPHER_mode(cipher) == EVP_CIPH_GCM_MODE ||
                 EVP_CIPHER_mode(cipher) == EVP_CIPH_CCM_MODE ||
                 EVP_CIPHER_mode(cipher) == EVP_CIPH_XTS_MODE ||
-                EVP_CIPHER_mode(cipher) == EVP_CIPH_OCB_MODE) {
+                EVP_CIPHER_mode(cipher) == EVP_CIPH_OCB_MODE)
+            {
                 BIO_printf(bio_err, "%s: cipher mode not supported\n", prog);
                 goto end;
             }
@@ -133,12 +150,40 @@ int genpkey_main(int argc, char **argv)
     if (argc != 0)
         goto opthelp;
 
+    if (schnorr_generate == 1)
+    {
+        if (outfile != NULL)
+        {
+            EC_KEY *key;
+            int ret_code = SCHNORR_generate_key(&key);
+            if (ret_code != 0)
+            {
+                printf("Error generating a key pair!\n");
+                goto end;
+            }
+            ret_code = SCHNORR_write_private_key(key, outfile);
+            if (ret_code != 0)
+            {
+                printf("Error writing a key pair!\n");
+                goto end;
+            }
+            return 0;
+        }
+        else
+        {
+            goto opthelp;
+        }
+        ret = 0;
+        goto end;
+    }
+
     private = do_param ? 0 : 1;
 
     if (ctx == NULL)
         goto opthelp;
 
-    if (!app_passwd(passarg, NULL, &pass, NULL)) {
+    if (!app_passwd(passarg, NULL, &pass, NULL))
+    {
         BIO_puts(bio_err, "Error getting password\n");
         goto end;
     }
@@ -150,45 +195,60 @@ int genpkey_main(int argc, char **argv)
     EVP_PKEY_CTX_set_cb(ctx, genpkey_cb);
     EVP_PKEY_CTX_set_app_data(ctx, bio_err);
 
-    if (do_param) {
-        if (EVP_PKEY_paramgen(ctx, &pkey) <= 0) {
+    if (do_param)
+    {
+        if (EVP_PKEY_paramgen(ctx, &pkey) <= 0)
+        {
             BIO_puts(bio_err, "Error generating parameters\n");
             ERR_print_errors(bio_err);
             goto end;
         }
-    } else {
-        if (EVP_PKEY_keygen(ctx, &pkey) <= 0) {
+    }
+    else
+    {
+        if (EVP_PKEY_keygen(ctx, &pkey) <= 0)
+        {
             BIO_puts(bio_err, "Error generating key\n");
             ERR_print_errors(bio_err);
             goto end;
         }
     }
 
-    if (do_param) {
+    if (do_param)
+    {
         rv = PEM_write_bio_Parameters(out, pkey);
-    } else if (outformat == FORMAT_PEM) {
+    }
+    else if (outformat == FORMAT_PEM)
+    {
         assert(private);
         rv = PEM_write_bio_PrivateKey(out, pkey, cipher, NULL, 0, NULL, pass);
-    } else if (outformat == FORMAT_ASN1) {
+    }
+    else if (outformat == FORMAT_ASN1)
+    {
         assert(private);
         rv = i2d_PrivateKey_bio(out, pkey);
-    } else {
+    }
+    else
+    {
         BIO_printf(bio_err, "Bad format specified for key\n");
         goto end;
     }
 
-    if (rv <= 0) {
+    if (rv <= 0)
+    {
         BIO_puts(bio_err, "Error writing key\n");
         ERR_print_errors(bio_err);
     }
 
-    if (text) {
+    if (text)
+    {
         if (do_param)
             rv = EVP_PKEY_print_params(out, pkey, 0, NULL);
         else
             rv = EVP_PKEY_print_private(out, pkey, 0, NULL);
 
-        if (rv <= 0) {
+        if (rv <= 0)
+        {
             BIO_puts(bio_err, "Error printing key\n");
             ERR_print_errors(bio_err);
         }
@@ -196,7 +256,7 @@ int genpkey_main(int argc, char **argv)
 
     ret = 0;
 
- end:
+end:
     EVP_PKEY_free(pkey);
     EVP_PKEY_CTX_free(ctx);
     BIO_free_all(out);
@@ -211,13 +271,15 @@ static int init_keygen_file(EVP_PKEY_CTX **pctx, const char *file, ENGINE *e)
     BIO *pbio;
     EVP_PKEY *pkey = NULL;
     EVP_PKEY_CTX *ctx = NULL;
-    if (*pctx) {
+    if (*pctx)
+    {
         BIO_puts(bio_err, "Parameters already set!\n");
         return 0;
     }
 
     pbio = BIO_new_file(file, "r");
-    if (!pbio) {
+    if (!pbio)
+    {
         BIO_printf(bio_err, "Can't open parameter file %s\n", file);
         return 0;
     }
@@ -225,7 +287,8 @@ static int init_keygen_file(EVP_PKEY_CTX **pctx, const char *file, ENGINE *e)
     pkey = PEM_read_bio_Parameters(pbio, NULL);
     BIO_free(pbio);
 
-    if (!pkey) {
+    if (!pkey)
+    {
         BIO_printf(bio_err, "Error reading parameter file %s\n", file);
         return 0;
     }
@@ -239,13 +302,12 @@ static int init_keygen_file(EVP_PKEY_CTX **pctx, const char *file, ENGINE *e)
     *pctx = ctx;
     return 1;
 
- err:
+err:
     BIO_puts(bio_err, "Error initializing context\n");
     ERR_print_errors(bio_err);
     EVP_PKEY_CTX_free(ctx);
     EVP_PKEY_free(pkey);
     return 0;
-
 }
 
 int init_gen_str(EVP_PKEY_CTX **pctx,
@@ -256,9 +318,15 @@ int init_gen_str(EVP_PKEY_CTX **pctx,
     ENGINE *tmpeng = NULL;
     int pkey_id;
 
-    if (*pctx) {
+    if (*pctx)
+    {
         BIO_puts(bio_err, "Algorithm already set!\n");
         return 0;
+    }
+
+    if (schnorr_generate == 1)
+    {
+        return 1;
     }
 
     ameth = EVP_PKEY_asn1_find_str(&tmpeng, algname, -1);
@@ -268,7 +336,8 @@ int init_gen_str(EVP_PKEY_CTX **pctx,
         ameth = ENGINE_get_pkey_asn1_meth_str(e, algname, -1);
 #endif
 
-    if (!ameth) {
+    if (!ameth)
+    {
         BIO_printf(bio_err, "Algorithm %s not found\n", algname);
         return 0;
     }
@@ -283,10 +352,13 @@ int init_gen_str(EVP_PKEY_CTX **pctx,
 
     if (!ctx)
         goto err;
-    if (do_param) {
+    if (do_param)
+    {
         if (EVP_PKEY_paramgen_init(ctx) <= 0)
             goto err;
-    } else {
+    }
+    else
+    {
         if (EVP_PKEY_keygen_init(ctx) <= 0)
             goto err;
     }
@@ -294,12 +366,11 @@ int init_gen_str(EVP_PKEY_CTX **pctx,
     *pctx = ctx;
     return 1;
 
- err:
+err:
     BIO_printf(bio_err, "Error initializing %s context\n", algname);
     ERR_print_errors(bio_err);
     EVP_PKEY_CTX_free(ctx);
     return 0;
-
 }
 
 static int genpkey_cb(EVP_PKEY_CTX *ctx)
