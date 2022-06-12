@@ -1,3 +1,3 @@
 LIBS=../../libcrypto
 SOURCE[../../libcrypto]=\
-        schnorr_generate.c schnorr_io.c schnorr_signature.c
+        schnorr_generate.c schnorr_io.c schnorr_signature.c schnorr_asn1.c

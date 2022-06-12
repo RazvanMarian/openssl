@@ -11,8 +11,19 @@ extern "C"
 #include <openssl/sha.h>
 #include <openssl/pem.h>
 #include <openssl/err.h>
+#include <openssl/asn1.h>
+#include <openssl/asn1t.h>
+#include <openssl/x509v3.h>
+#include <openssl/pkcs7.h>
+#include <openssl/safestack.h>
 
     typedef struct SCHNORR_SIG_st SCHNORR_SIG;
+
+    typedef struct schnorr_signed_data SCHNORR_SIGNED_DATA;
+
+    typedef struct schnorr_signature SCHNORR_SIGNATURE_ASN1;
+
+    typedef struct schnorr_signer_info_st SCHNORR_SIGNER_INFO;
 
     int SCHNORR_generate_key(EC_KEY **key);
 
@@ -51,6 +62,12 @@ extern "C"
     int SCHNORR_SIG_set_r(SCHNORR_SIG *sig, BIGNUM *r);
 
     int SCHNORR_SIG_set_s(SCHNORR_SIG *sig, BIGNUM *s);
+
+    SCHNORR_SIGNED_DATA *SCHNORR_create_pkcs7(EC_KEY **keys, X509 **certificates, int signers_number, SCHNORR_SIG *sig);
+
+    int write_schnorr_signed_data_asn1(SCHNORR_SIGNED_DATA *signed_data, const char *filename);
+
+    int read_schnorr_signed_data_asn1(SCHNORR_SIGNED_DATA **signed_data, const char *filename);
 
 #ifdef __cplusplus
 }

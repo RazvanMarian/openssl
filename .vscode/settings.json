@@ -1,6 +1,10 @@
 {
     "files.associations": {
         "x509.h": "c",
-        "schnorr.h": "c"
+        "schnorr.h": "c",
+        "atomic": "c",
+        "vector": "c",
+        "xfacet": "c",
+        "xmemory": "c"
     }
 }
