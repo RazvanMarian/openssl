@@ -44,7 +44,7 @@ ASN1_SEQUENCE(SCHNORR_SIGNED_DATA) =
         ASN1_SET_OF(SCHNORR_SIGNED_DATA, cert, X509),
         ASN1_SET_OF(SCHNORR_SIGNED_DATA, crl, X509_CRL),
         ASN1_SET_OF(SCHNORR_SIGNED_DATA, signer_info, SCHNORR_SIGNER_INFO),
-        ASN1_SET_OF(SCHNORR_SIGNED_DATA, enc_digest, SCHNORR_SIGNATURE_ASN1)
+        ASN1_SET_OF(SCHNORR_SIGNED_DATA, signature, SCHNORR_SIGNATURE_ASN1)
 
 } ASN1_SEQUENCE_END(SCHNORR_SIGNED_DATA);
 
@@ -142,14 +142,14 @@ unsigned char *SCHNORR_signature_2bin(SCHNORR_SIG *signature)
 
     unsigned char *sig = (unsigned char *)malloc((BN_num_bytes(SCHNORR_SIG_get_s(signature)) + BN_num_bytes(SCHNORR_SIG_get_s(signature))) * sizeof(unsigned char));
 
-    int size_r = BN_bn2binpad(SCHNORR_SIG_get_r(signature), r, 32);
+    int size_r = BN_bn2bin(SCHNORR_SIG_get_r(signature), r);
     if (size_r == 0)
     {
         printf("Eroare la conversia componentei r!\n");
         return NULL;
     }
 
-    int size_s = BN_bn2binpad(SCHNORR_SIG_get_s(signature), s, 32);
+    int size_s = BN_bn2bin(SCHNORR_SIG_get_s(signature), s);
     if (size_s == 0)
     {
         printf("Eroare la conversia componentei s!\n");
@@ -207,6 +207,61 @@ SCHNORR_SIGNER_INFO *create_schnorr_si(EC_KEY *key, X509 *cert)
     return signer_info;
 }
 
+STACK_OF(X509) * SCHNORR_get_signers_certificates(SCHNORR_SIGNED_DATA *signed_data)
+{
+    if (signed_data == NULL)
+        return NULL;
+    if (signed_data->cert == NULL)
+        return NULL;
+
+    return signed_data->cert;
+}
+
+SCHNORR_SIG *SCHNORR_get_signature(SCHNORR_SIGNED_DATA *signed_data)
+{
+    if (signed_data == NULL)
+        return NULL;
+    if (signed_data->signature == NULL)
+        return NULL;
+
+    SCHNORR_SIGNATURE_ASN1 *signature_asn1 = sk_SCHNORR_SIGNATURE_ASN1_pop(signed_data->signature);
+    if (signature_asn1 == NULL)
+        return NULL;
+
+    BIGNUM *id = BN_new();
+    ASN1_INTEGER_to_BN(signature_asn1->id, id);
+    if (!BN_is_zero(id))
+    {
+        printf("not yet supported\n");
+        return NULL;
+    }
+
+    SCHNORR_SIG *sig = SCHNORR_SIG_new();
+    const unsigned char *sig_string = ASN1_STRING_get0_data(signature_asn1->enc_digest);
+
+    unsigned char *r = (unsigned char *)malloc(SIGNATURE_COMPONENT_SIZE * sizeof(unsigned char));
+    unsigned char *s = (unsigned char *)malloc(SIGNATURE_COMPONENT_SIZE * sizeof(unsigned char));
+
+    memcpy(s, sig_string, 32);
+    memcpy(r, sig_string + 32, 32);
+
+    if (SCHNORR_SIG_set_r(sig, BN_bin2bn(r, SIGNATURE_COMPONENT_SIZE, NULL)) == -1)
+    {
+        printf("Eroare la conversia semnaturii in BN!\n");
+        return -1;
+    }
+
+    if (SCHNORR_SIG_set_s(sig, BN_bin2bn(s, SIGNATURE_COMPONENT_SIZE, NULL)) == -1)
+    {
+        printf("Eroare la conversia semnaturii in BN!\n");
+        return -1;
+    }
+
+    free(r);
+    free(s);
+    return sig;
+}
+
 SCHNORR_SIGNED_DATA *SCHNORR_create_pkcs7(EC_KEY **keys, X509 **certificates, int signers_number, SCHNORR_SIG *sig)
 {
     // signed data
@@ -260,10 +315,11 @@ SCHNORR_SIGNED_DATA *SCHNORR_create_pkcs7(EC_KEY **keys, X509 **certificates, in
     ASN1_INTEGER_set(a, 0);
     signature_asn1->id = a;
     signature_asn1->enc_digest = ASN1_OCTET_STRING_new();
-    ASN1_OCTET_STRING_set(signature_asn1->enc_digest, SCHNORR_signature_2bin(sig), 64);
+    unsigned char *buffer = SCHNORR_signature_2bin(sig);
+    ASN1_OCTET_STRING_set(signature_asn1->enc_digest, buffer, 64);
 
-    signed_data->enc_digest = sk_SCHNORR_SIGNATURE_ASN1_new_null();
-    sk_SCHNORR_SIGNATURE_ASN1_push(signed_data->enc_digest, signature_asn1);
+    signed_data->signature = sk_SCHNORR_SIGNATURE_ASN1_new_null();
+    sk_SCHNORR_SIGNATURE_ASN1_push(signed_data->signature, signature_asn1);
 
     // content si crl
     signed_data->crl = sk_X509_CRL_new_null();
@@ -284,14 +340,14 @@ int write_schnorr_signed_data_asn1(SCHNORR_SIGNED_DATA *signed_data, const char 
 
     FILE *fout = fopen(filename, "wb");
 
-    fprintf(fout, "----- BEGIN SCHNORR SIGNATURE -----\n");
+    fprintf(fout, "-----BEGIN SCHNORR SIGNATURE-----\n");
 
     size_t length;
     char *base64asn1 = base64_encode(buf, len, &length);
 
     fwrite(base64asn1, length, 1, fout);
     fprintf(fout, "\n");
-    fprintf(fout, "----- END SCHNORR SIGNATURE -----\n");
+    fprintf(fout, "-----END SCHNORR SIGNATURE-----\n");
     fclose(fout);
 
     return 0;
@@ -307,19 +363,19 @@ int read_schnorr_signed_data_asn1(SCHNORR_SIGNED_DATA **signed_data, const char 
     int length = ftell(fin);
     rewind(fin);
 
-    unsigned char *buffer = (unsigned char *)malloc(sizeof(unsigned char) * length - 71);
-    fseek(fin, 36, 0);
+    unsigned char *buffer = (unsigned char *)malloc(sizeof(unsigned char) * length - 67);
+    fseek(fin, 34, 0);
 
-    fread(buffer, 1, length - 71, fin);
+    fread(buffer, 1, length - 67, fin);
     fclose(fin);
 
     size_t len;
-    unsigned char *buf = base64_decode((const char *)buffer, length - 71, &len);
+    unsigned char *buf = base64_decode((const char *)buffer, length - 67, &len);
 
     *signed_data = (SCHNORR_SIGNED_DATA *)malloc(sizeof(SCHNORR_SIGNED_DATA));
 
     (*signed_data)->signer_info = sk_SCHNORR_SIGNER_INFO_new_null();
-    (*signed_data)->enc_digest = sk_SCHNORR_SIGNATURE_ASN1_new_null();
+    (*signed_data)->signature = sk_SCHNORR_SIGNATURE_ASN1_new_null();
     (*signed_data)->md_algs = sk_X509_ALGOR_new_null();
     (*signed_data)->cert = sk_X509_new_null();
     (*signed_data)->crl = sk_X509_CRL_new_null();

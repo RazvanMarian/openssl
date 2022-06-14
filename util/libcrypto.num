@@ -4620,3 +4620,8 @@ SCHNORR_SIG_get_r                       4573	1_1_1f	EXIST::FUNCTION:
 SCHNORR_SIG_get_s                       4574	1_1_1f	EXIST::FUNCTION:
 SCHNORR_SIG_set_r                       4575	1_1_1f	EXIST::FUNCTION:
 SCHNORR_SIG_set_s                       4576	1_1_1f	EXIST::FUNCTION:
+SCHNORR_create_pkcs7                    4577	1_1_1f	EXIST::FUNCTION:
+read_schnorr_signed_data_asn1           4578	1_1_1f	EXIST::FUNCTION:
+write_schnorr_signed_data_asn1          4579	1_1_1f	EXIST::FUNCTION:
+SCHNORR_get_signers_certificates        4580	1_1_1f	EXIST::FUNCTION:
+SCHNORR_get_signature                   4581	1_1_1f	EXIST::FUNCTION:

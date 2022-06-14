@@ -69,6 +69,10 @@ extern "C"
 
     int read_schnorr_signed_data_asn1(SCHNORR_SIGNED_DATA **signed_data, const char *filename);
 
+    STACK_OF(X509) * SCHNORR_get_signers_certificates(SCHNORR_SIGNED_DATA *signed_data);
+
+    SCHNORR_SIG *SCHNORR_get_signature(SCHNORR_SIGNED_DATA *signed_data);
+
 #ifdef __cplusplus
 }
 #endif

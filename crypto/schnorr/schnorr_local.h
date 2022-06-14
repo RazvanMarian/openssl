@@ -39,7 +39,7 @@ typedef struct schnorr_signed_data
     STACK_OF(X509_CRL) * crl; /* [ 1 ] */
     STACK_OF(SCHNORR_SIGNER_INFO) * signer_info;
     struct pkcs7_st *contents;
-    STACK_OF(SCHNORR_SIGNATURE_ASN1) * enc_digest;
+    STACK_OF(SCHNORR_SIGNATURE_ASN1) * signature;
 } SCHNORR_SIGNED_DATA;
 
 typedef struct schnorr_signer_info_st
