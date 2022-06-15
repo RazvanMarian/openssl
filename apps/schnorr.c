@@ -14,6 +14,10 @@
 #include "progs.h"
 #include <openssl/bio.h>
 #include <openssl/schnorr.h>
+#include <openssl/x509v3.h>
+#include <openssl/x509.h>
+
+X509 *create_certificate(EC_KEY *key, int flag);
 
 typedef enum OPTION_choice
 {
@@ -33,7 +37,9 @@ typedef enum OPTION_choice
     OPT_MULTIPLE_SIGN,
     OPT_MULTIPLE_SIGNER,
     OPT_MULTIPLE_VERIFY,
-    OPT_MULTIPLE_VERIFIER
+    OPT_MULTIPLE_VERIFIER,
+    OPT_SIGNED_DATA,
+    OPT_VERIFY_PKCS7
 } OPTION_CHOICE;
 
 const OPTIONS schnorr_options[] = {
@@ -46,12 +52,14 @@ const OPTIONS schnorr_options[] = {
     {"pubout", OPT_PUBOUT, '-', "Output public key, not private"},
     {"sign", OPT_SIGN, 's', "Sign digest using private key"},
     {"verify", OPT_VERIFY, 's', "Verify a signature using public key"},
+    {"verifypkcs7", OPT_VERIFY_PKCS7, '-', "Verify a signature using public key"},
     {"signature", OPT_SIGNATURE, '<', "File with signature to verify"},
     {"genschnorr", OPT_GENERATE, '-', "Generate a key pair"},
     {"multiplesign", OPT_MULTIPLE_SIGN, 's', "Aggregate signature"},
     {"signer", OPT_MULTIPLE_SIGNER, 's', "Aggregate signer private key"},
     {"multipleverify", OPT_MULTIPLE_VERIFY, 's', "Aggregate verification"},
     {"verifier", OPT_MULTIPLE_VERIFIER, 's', "Aggregate verifier public key"},
+    {"pkcs7", OPT_SIGNED_DATA, '-', "Verify a pkcs7 schnorr signature structure"},
     {NULL}};
 
 int schnorr_main(int argc, char **argv)
@@ -63,7 +71,7 @@ int schnorr_main(int argc, char **argv)
     int text = 0, noout = 0;
     int pubin = 0, pubout = 0, ret = 1;
     int sign = 0, verify = 0, generate = 0;
-    int multiple_sign = 0, multiple_verify = 0;
+    int multiple_sign = 0, multiple_verify = 0, signed_data = 0;
     int signers_number = 0, participant_counter = 0, verifier_counter = 0;
     char *keyfile = NULL, *sigfile = NULL, **key_files = NULL;
 
@@ -111,8 +119,15 @@ int schnorr_main(int argc, char **argv)
             pubin = verify = 1;
             keyfile = opt_arg();
             break;
+        case OPT_VERIFY_PKCS7:
+            pubin = verify = 1;
+            signed_data = 1;
+            break;
         case OPT_GENERATE:
             generate = 1;
+            break;
+        case OPT_SIGNED_DATA:
+            signed_data = 1;
             break;
         case OPT_MULTIPLE_SIGN:
 
@@ -282,10 +297,27 @@ int schnorr_main(int argc, char **argv)
                 goto end;
             }
 
-            if (SCHNORR_write_signature(signature, outfile) != 0)
+            if (signed_data)
             {
-                BIO_printf(bio_err, "%s: Error writing the signature in the output file.\n", prog);
-                goto end;
+                X509 **certificates = (X509 **)malloc(sizeof(X509 *) * signers_number);
+
+                for (int i = 0; i < signers_number; i++)
+                {
+                    certificates[i] = create_certificate(keys[i], 0);
+                }
+
+                SCHNORR_SIGNED_DATA *data = SCHNORR_create_pkcs7(keys, certificates, signers_number, signature);
+
+                write_schnorr_signed_data_asn1(data, outfile);
+            }
+            else
+            {
+
+                if (SCHNORR_write_signature(signature, outfile) != 0)
+                {
+                    BIO_printf(bio_err, "%s: Error writing the signature in the output file.\n", prog);
+                    goto end;
+                }
             }
 
             printf("The file %s was signed. The signature should be in %s.\n", file_to_be_signed, outfile);
@@ -415,10 +447,27 @@ int schnorr_main(int argc, char **argv)
                 goto end;
             }
 
-            if (SCHNORR_write_signature(signature, outfile) != 0)
+            if (signed_data)
             {
-                BIO_printf(bio_err, "%s: Error writing the signature in the output file.\n", prog);
-                goto end;
+                EC_KEY **keys = (EC_KEY **)malloc(sizeof(EC_KEY *));
+                keys[0] = EC_KEY_dup(private_key);
+
+                X509 **certificates = (X509 **)malloc(sizeof(X509 *));
+
+                certificates[0] = create_certificate(keys[0], 0);
+
+                SCHNORR_SIGNED_DATA *data = SCHNORR_create_pkcs7(keys, certificates, 1, signature);
+
+                write_schnorr_signed_data_asn1(data, outfile);
+            }
+            else
+            {
+
+                if (SCHNORR_write_signature(signature, outfile) != 0)
+                {
+                    BIO_printf(bio_err, "%s: Error writing the signature in the output file.\n", prog);
+                    goto end;
+                }
             }
 
             printf("The file %s was signed. The signature should be in %s.\n", file_to_be_signed, outfile);
@@ -431,8 +480,10 @@ int schnorr_main(int argc, char **argv)
 
     if (verify)
     {
+
         if (pubin && sigfile != NULL && argv[0] != NULL)
         {
+
             char *file_to_be_verified = argv[0];
 
             // read file input
@@ -460,24 +511,61 @@ int schnorr_main(int argc, char **argv)
             unsigned char *file_hash = (unsigned char *)malloc(SHA256_DIGEST_LENGTH);
             SHA256((unsigned char *)file_content, fsize, file_hash);
 
-            EC_KEY *public_key = EC_KEY_new();
-            if (SCHNORR_read_public_key(&public_key, keyfile) != 0)
+            if (signed_data == 1)
             {
-                BIO_printf(bio_err, "%s: Could not load the private key.\n", prog);
-                goto end;
-            }
+                SCHNORR_SIGNED_DATA *data;
+                read_schnorr_signed_data_asn1(&data, sigfile);
 
-            SCHNORR_SIG *signature = SCHNORR_SIG_new();
-            if (SCHNORR_read_signature(signature, sigfile) != 0)
-            {
-                BIO_printf(bio_err, "%s: Could not read the signature from the specified file.\n", prog);
-                goto end;
-            }
+                STACK_OF(X509) *x509_stack = SCHNORR_get_signers_certificates(data);
+                if (x509_stack == NULL)
+                {
+                    printf("eroare preluare certificate\n");
+                    return -1;
+                }
 
-            if (SCHNORR_verify(public_key, (const char *)file_hash, SHA256_DIGEST_LENGTH, signature) != 0)
+                SCHNORR_SIG *signature = SCHNORR_get_signature(data);
+                if (signature == NULL)
+                {
+                    printf("eroare preluare semnatura\n");
+                    return -1;
+                }
+                int signers_number = sk_X509_num(x509_stack);
+
+                EC_KEY **keys = (EC_KEY **)malloc(sizeof(EC_KEY *) * signers_number);
+                for (int i = 0; i < signers_number; i++)
+                {
+                    X509 *cert = sk_X509_value(x509_stack, i);
+                    EVP_PKEY *pkey = X509_get_pubkey(cert);
+
+                    keys[i] = EVP_PKEY_get0_EC_KEY(pkey);
+                }
+                if (SCHNORR_multiple_verify(keys, signers_number, file_hash, SHA256_DIGEST_LENGTH, signature) != 0)
+                {
+                    printf("eroare verificare\n");
+                    return -1;
+                }
+            }
+            else
             {
-                BIO_printf(bio_err, "%s: Could not verify the signature. Signature IS NOT OK.\n", prog);
-                goto end;
+                EC_KEY *public_key = EC_KEY_new();
+                if (SCHNORR_read_public_key(&public_key, keyfile) != 0)
+                {
+                    BIO_printf(bio_err, "%s: Could not load the private key.\n", prog);
+                    goto end;
+                }
+
+                SCHNORR_SIG *signature = SCHNORR_SIG_new();
+                if (SCHNORR_read_signature(signature, sigfile) != 0)
+                {
+                    BIO_printf(bio_err, "%s: Could not read the signature from the specified file.\n", prog);
+                    goto end;
+                }
+
+                if (SCHNORR_verify(public_key, (const char *)file_hash, SHA256_DIGEST_LENGTH, signature) != 0)
+                {
+                    BIO_printf(bio_err, "%s: Could not verify the signature. Signature IS NOT OK.\n", prog);
+                    goto end;
+                }
             }
             printf("Verified OK!\n");
         }
@@ -489,4 +577,138 @@ int schnorr_main(int argc, char **argv)
     ret = 0;
 end:
     return ret;
+}
+
+X509 *create_certificate(EC_KEY *key, int flag)
+{
+
+    int ret;
+
+    // Setare cheie publica cerere certificat
+    EVP_PKEY *pKey = EVP_PKEY_new();
+    ret = EVP_PKEY_set1_EC_KEY(pKey, key);
+    if (ret != 1)
+    {
+        printf("eroare setare cheie evp!\n");
+        return NULL;
+    }
+
+    // Incarcare certificat CA
+    FILE *fp;
+    if (!(fp = fopen("myCA.pem", "r")))
+    {
+        printf("Eroare la citirea certificatului CA-ului\n");
+        return NULL;
+    }
+
+    X509 *cacert;
+    if (!(cacert = PEM_read_X509(fp, NULL, NULL, NULL)))
+    {
+        printf("Eroare incarcare certificat CA in memorie!\n");
+        return NULL;
+    }
+    fclose(fp);
+
+    // Importare cheie privata CA
+    EVP_PKEY *ca_privkey = EVP_PKEY_new();
+
+    if (!(fp = fopen("myCA.key", "r")))
+    {
+        printf("Eroare deschidere fisier cheie CA\n");
+        return NULL;
+    }
+
+    if (!(ca_privkey = PEM_read_PrivateKey(fp, NULL, NULL, (void *)"1234")))
+    {
+        printf("Eroare citire cheie privata CA\n");
+        return NULL;
+    }
+
+    fclose(fp);
+
+    // Creare certificat
+    X509 *newcert;
+    if (!(newcert = X509_new()))
+    {
+        printf("Eroare alocare certificat nou!\n");
+        return NULL;
+    }
+
+    if (X509_set_version(newcert, 2) != 1)
+    {
+        printf("Eroare setare versiune certificat\n");
+        return NULL;
+    }
+
+    // Setare serial number certificat
+    ASN1_INTEGER *aserial = ASN1_INTEGER_new();
+    ASN1_INTEGER_set(aserial, 1);
+    if (!X509_set_serialNumber(newcert, aserial))
+    {
+        printf("Eroare setare serie certificat!\n");
+        return NULL;
+    }
+
+    // Extragere subject name din request
+    X509_NAME *name;
+    if (!(name = X509_get_subject_name(newcert)))
+        printf("Eroare preluare subiect din cerere!\n");
+
+    // Setare subject name in certificatul nou
+    if (X509_set_subject_name(newcert, name) != 1)
+    {
+        printf("Eroare setare subject name certificat!\n");
+        return NULL;
+    }
+
+    // Extragere subject name din certificatul CA
+    if (!(name = X509_get_subject_name(cacert)))
+    {
+        printf("Eroare preluare subject name de la certificatul CA!\n");
+        return NULL;
+    }
+
+    // Setare issuer name
+    if (X509_set_issuer_name(newcert, name) != 1)
+    {
+        printf("Eroare setare issuer name!\n");
+        return NULL;
+    }
+
+    // Setare cheie publica certificat
+    if (X509_set_pubkey(newcert, pKey) != 1)
+    {
+        printf("Eroare setare cheie publica certificat!\n");
+        return NULL;
+    }
+
+    // Setare valabilitate 365 de zile
+    if (!(X509_gmtime_adj(X509_get_notBefore(newcert), 0)))
+    {
+        printf("Eroare setare start date!\n");
+        return NULL;
+    }
+
+    if (!(X509_gmtime_adj(X509_get_notAfter(newcert), 31536000L)))
+    {
+        printf("Eroare setare expiration date!\n");
+        return NULL;
+    }
+
+    // Adaugare extensie x509V3
+    X509V3_CTX ctx;
+    X509V3_set_ctx(&ctx, cacert, newcert, NULL, NULL, 0);
+    X509_EXTENSION *ext;
+
+    // Semnarea certificatului cu cheia privata a CA-ului
+    EVP_MD const *digest = NULL;
+    digest = EVP_sha256();
+
+    if (!X509_sign(newcert, ca_privkey, digest))
+    {
+        printf("Eroare setare digest type!\n");
+        return NULL;
+    }
+
+    return newcert;
 }

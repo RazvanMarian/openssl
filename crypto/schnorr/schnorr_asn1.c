@@ -187,14 +187,15 @@ SCHNORR_SIGNER_INFO *create_schnorr_si(EC_KEY *key, X509 *cert)
     signer_info->digest_alg = X509_ALGOR_new();
     X509_ALGOR_set_md(signer_info->digest_alg, EVP_sha256());
 
-    // atribute - testare
+    // atribute
+
+    time_t t; // not a primitive datatype
+    time(&t);
+
     X509_ATTRIBUTE *attr = X509_ATTRIBUTE_new();
+    X509_ATTRIBUTE_create_by_NID(&attr, NID_time_stamp, 0, ctime(&t), 8);
 
-    X509_ATTRIBUTE_create_by_NID(&attr, NID_sha256, 0, "12342615", 8);
-
-    // X509_ATTRIBUTE_create_by_txt(&attr, "myatr", 1, (const unsigned char*)"ceva", 4);
     signer_info->auth_attr = sk_X509_ATTRIBUTE_new_null();
-    sk_X509_ATTRIBUTE_push(signer_info->auth_attr, attr);
 
     signer_info->unauth_attr = sk_X509_ATTRIBUTE_new_null();
     sk_X509_ATTRIBUTE_push(signer_info->unauth_attr, attr);
