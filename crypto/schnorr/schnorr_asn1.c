@@ -11,14 +11,15 @@ char encoding_table[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
 char *decoding_table = NULL;
 int mod_table[] = {0, 2, 1};
 
+DEFINE_STACK_OF(PKCS7_ISSUER_AND_SERIAL);
 ASN1_SEQUENCE(SCHNORR_SIGNER_INFO) =
     {
         ASN1_SIMPLE(SCHNORR_SIGNER_INFO, version, ASN1_INTEGER),
-        ASN1_SIMPLE(SCHNORR_SIGNER_INFO, signature_id, ASN1_INTEGER),
-        ASN1_SIMPLE(SCHNORR_SIGNER_INFO, issuer_and_serial, PKCS7_ISSUER_AND_SERIAL),
+        ASN1_SET_OF(SCHNORR_SIGNER_INFO, issuers_and_serials, PKCS7_ISSUER_AND_SERIAL),
         ASN1_SIMPLE(SCHNORR_SIGNER_INFO, digest_alg, X509_ALGOR),
         ASN1_SET_OF(SCHNORR_SIGNER_INFO, auth_attr, X509_ATTRIBUTE),
-        ASN1_SET_OF(SCHNORR_SIGNER_INFO, unauth_attr, X509_ATTRIBUTE)
+        ASN1_SET_OF(SCHNORR_SIGNER_INFO, unauth_attr, X509_ATTRIBUTE),
+        ASN1_SIMPLE(SCHNORR_SIGNER_INFO, encrypted_digest, ASN1_OCTET_STRING)
 
 } ASN1_SEQUENCE_END(SCHNORR_SIGNER_INFO);
 
@@ -26,25 +27,13 @@ DECLARE_ASN1_FUNCTIONS(SCHNORR_SIGNER_INFO);
 IMPLEMENT_ASN1_FUNCTIONS(SCHNORR_SIGNER_INFO);
 DEFINE_STACK_OF(SCHNORR_SIGNER_INFO);
 
-ASN1_SEQUENCE(SCHNORR_SIGNATURE_ASN1) =
-    {
-        ASN1_SIMPLE(SCHNORR_SIGNATURE_ASN1, id, ASN1_INTEGER),
-        ASN1_SIMPLE(SCHNORR_SIGNATURE_ASN1, enc_digest, ASN1_OCTET_STRING)
-
-} ASN1_SEQUENCE_END(SCHNORR_SIGNATURE_ASN1);
-
-DECLARE_ASN1_FUNCTIONS(SCHNORR_SIGNATURE_ASN1);
-IMPLEMENT_ASN1_FUNCTIONS(SCHNORR_SIGNATURE_ASN1);
-DEFINE_STACK_OF(SCHNORR_SIGNATURE_ASN1);
-
 ASN1_SEQUENCE(SCHNORR_SIGNED_DATA) =
     {
         ASN1_SIMPLE(SCHNORR_SIGNED_DATA, version, ASN1_INTEGER),
         ASN1_SET_OF(SCHNORR_SIGNED_DATA, md_algs, X509_ALGOR),
         ASN1_SET_OF(SCHNORR_SIGNED_DATA, cert, X509),
         ASN1_SET_OF(SCHNORR_SIGNED_DATA, crl, X509_CRL),
-        ASN1_SET_OF(SCHNORR_SIGNED_DATA, signer_info, SCHNORR_SIGNER_INFO),
-        ASN1_SET_OF(SCHNORR_SIGNED_DATA, signature, SCHNORR_SIGNATURE_ASN1)
+        ASN1_SET_OF(SCHNORR_SIGNED_DATA, signer_info, SCHNORR_SIGNER_INFO)
 
 } ASN1_SEQUENCE_END(SCHNORR_SIGNED_DATA);
 
@@ -162,9 +151,8 @@ unsigned char *SCHNORR_signature_2bin(SCHNORR_SIG *signature)
     return sig;
 }
 
-SCHNORR_SIGNER_INFO *create_schnorr_si(EC_KEY *key, X509 *cert)
+SCHNORR_SIGNER_INFO *create_schnorr_si(EC_KEY *key, X509 **certs, int signers_number, SCHNORR_SIG *sig)
 {
-    X509_NAME *name = X509_get_issuer_name(cert);
 
     SCHNORR_SIGNER_INFO *signer_info = (SCHNORR_SIGNER_INFO *)malloc(sizeof(SCHNORR_SIGNER_INFO));
 
@@ -173,22 +161,25 @@ SCHNORR_SIGNER_INFO *create_schnorr_si(EC_KEY *key, X509 *cert)
     ASN1_INTEGER_set(a, 1);
     signer_info->version = a;
 
-    // signature id
-    ASN1_INTEGER *b = ASN1_INTEGER_new();
-    ASN1_INTEGER_set(b, 0);
-    signer_info->signature_id = b;
+    // encrypted digest
+    signer_info->encrypted_digest = ASN1_OCTET_STRING_new();
+    ASN1_OCTET_STRING_set(signer_info->encrypted_digest, SCHNORR_signature_2bin(sig), 64);
 
     // issuer_and_serial
-    signer_info->issuer_and_serial = PKCS7_ISSUER_AND_SERIAL_new();
-    signer_info->issuer_and_serial->issuer = name;
-    signer_info->issuer_and_serial->serial = X509_get_serialNumber(cert);
+    signer_info->issuers_and_serials = sk_PKCS7_ISSUER_AND_SERIAL_new_null();
+    for (size_t i = 0; i < signers_number; i++)
+    {
+        PKCS7_ISSUER_AND_SERIAL *issuer_and_serial = PKCS7_ISSUER_AND_SERIAL_new();
+        issuer_and_serial->issuer = X509_get_issuer_name(certs[i]);
+        issuer_and_serial->serial = X509_get_serialNumber(certs[i]);
+        sk_PKCS7_ISSUER_AND_SERIAL_push(signer_info->issuers_and_serials, issuer_and_serial);
+    }
 
     // digest
     signer_info->digest_alg = X509_ALGOR_new();
     X509_ALGOR_set_md(signer_info->digest_alg, EVP_sha256());
 
     // atribute
-
     time_t t; // not a primitive datatype
     time(&t);
 
@@ -222,23 +213,15 @@ SCHNORR_SIG *SCHNORR_get_signature(SCHNORR_SIGNED_DATA *signed_data)
 {
     if (signed_data == NULL)
         return NULL;
-    if (signed_data->signature == NULL)
+    if (signed_data->signer_info == NULL)
         return NULL;
 
-    SCHNORR_SIGNATURE_ASN1 *signature_asn1 = sk_SCHNORR_SIGNATURE_ASN1_pop(signed_data->signature);
-    if (signature_asn1 == NULL)
+    SCHNORR_SIGNER_INFO *signer_info = sk_SCHNORR_SIGNER_INFO_pop(signed_data->signer_info);
+    if (signer_info == NULL)
         return NULL;
-
-    BIGNUM *id = BN_new();
-    ASN1_INTEGER_to_BN(signature_asn1->id, id);
-    if (!BN_is_zero(id))
-    {
-        printf("not yet supported\n");
-        return NULL;
-    }
 
     SCHNORR_SIG *sig = SCHNORR_SIG_new();
-    const unsigned char *sig_string = ASN1_STRING_get0_data(signature_asn1->enc_digest);
+    const unsigned char *sig_string = ASN1_STRING_get0_data(signer_info->encrypted_digest);
 
     unsigned char *r = (unsigned char *)malloc(SIGNATURE_COMPONENT_SIZE * sizeof(unsigned char));
     unsigned char *s = (unsigned char *)malloc(SIGNATURE_COMPONENT_SIZE * sizeof(unsigned char));
@@ -300,27 +283,17 @@ SCHNORR_SIGNED_DATA *SCHNORR_create_pkcs7(EC_KEY **keys, X509 **certificates, in
     for (int i = 0; i < signers_number; i++)
     {
         sk_X509_push(signed_data->cert, certificates[i]);
-
-        SCHNORR_SIGNER_INFO *signer_info = create_schnorr_si(keys[i], certificates[i]);
-        if (signer_info == NULL)
-        {
-            printf("Error creating signer info\n");
-            return NULL;
-        }
-
-        sk_SCHNORR_SIGNER_INFO_push(signed_data->signer_info, signer_info);
     }
 
-    // enc digest
-    SCHNORR_SIGNATURE_ASN1 *signature_asn1 = (SCHNORR_SIGNATURE_ASN1 *)malloc(sizeof(SCHNORR_SIGNATURE_ASN1));
-    ASN1_INTEGER_set(a, 0);
-    signature_asn1->id = a;
-    signature_asn1->enc_digest = ASN1_OCTET_STRING_new();
-    unsigned char *buffer = SCHNORR_signature_2bin(sig);
-    ASN1_OCTET_STRING_set(signature_asn1->enc_digest, buffer, 64);
+    EC_KEY *prv_key = SCHNORR_generate_aggregate_private_key(keys, signers_number);
+    SCHNORR_SIGNER_INFO *signer_info = create_schnorr_si(prv_key, certificates, signers_number, sig);
+    if (signer_info == NULL)
+    {
+        printf("Error creating signer info\n");
+        return NULL;
+    }
 
-    signed_data->signature = sk_SCHNORR_SIGNATURE_ASN1_new_null();
-    sk_SCHNORR_SIGNATURE_ASN1_push(signed_data->signature, signature_asn1);
+    sk_SCHNORR_SIGNER_INFO_push(signed_data->signer_info, signer_info);
 
     // content si crl
     signed_data->crl = sk_X509_CRL_new_null();
@@ -376,7 +349,6 @@ int read_schnorr_signed_data_asn1(SCHNORR_SIGNED_DATA **signed_data, const char 
     *signed_data = (SCHNORR_SIGNED_DATA *)malloc(sizeof(SCHNORR_SIGNED_DATA));
 
     (*signed_data)->signer_info = sk_SCHNORR_SIGNER_INFO_new_null();
-    (*signed_data)->signature = sk_SCHNORR_SIGNATURE_ASN1_new_null();
     (*signed_data)->md_algs = sk_X509_ALGOR_new_null();
     (*signed_data)->cert = sk_X509_new_null();
     (*signed_data)->crl = sk_X509_CRL_new_null();

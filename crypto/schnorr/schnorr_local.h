@@ -25,12 +25,6 @@ typedef struct SCHNORR_SIG_st
     BIGNUM *s;
 } SCHNORR_SIG;
 
-typedef struct schnorr_signature
-{
-    ASN1_INTEGER *id;
-    ASN1_OCTET_STRING *enc_digest;
-} SCHNORR_SIGNATURE_ASN1;
-
 typedef struct schnorr_signed_data
 {
     ASN1_INTEGER *version; /* version 1 */
@@ -39,16 +33,15 @@ typedef struct schnorr_signed_data
     STACK_OF(X509_CRL) * crl; /* [ 1 ] */
     STACK_OF(SCHNORR_SIGNER_INFO) * signer_info;
     struct pkcs7_st *contents;
-    STACK_OF(SCHNORR_SIGNATURE_ASN1) * signature;
 } SCHNORR_SIGNED_DATA;
 
 typedef struct schnorr_signer_info_st
 {
     ASN1_INTEGER *version; /* version 1 */
-    ASN1_INTEGER *signature_id;
-    PKCS7_ISSUER_AND_SERIAL *issuer_and_serial;
+    STACK_OF(PKCS7_ISSUER_AND_SERIAL) * issuers_and_serials;
     X509_ALGOR *digest_alg;
     STACK_OF(X509_ATTRIBUTE) * auth_attr;
     STACK_OF(X509_ATTRIBUTE) * unauth_attr;
+    ASN1_OCTET_STRING *encrypted_digest;
     EVP_PKEY *pkey;
 } SCHNORR_SIGNER_INFO;
